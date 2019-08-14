@@ -1,0 +1,125 @@
+----> Common for all
+sudo yum update -y
+sudo yum install ntp -y
+sudo systemctl enable ntpd
+sudo systemctl start ntpd
+sudo yum install vim -y
+sudo vim /etc/yum.repos.d/virt7-docker-common-release.repo
+sudo yum install vim -y
+sudo vim /etc/yum.repos.d/virt7-docker-common-release.repo
+    -----------------------
+    [virt7-docker-common-release]
+    name=virt7-docker-common-release
+    baseurl=http://cbs.centos.org/repos/virt7-docker-common-release/x86_64/os/
+    gpgcheck=0
+    -----------------------
+sudo yum repolist
+sudo yum install -y --enablerepo=virt7-docker-common-release docker kubernetes
+
+
+----> Kubernetes Manager
+sudo yum install etcd -y
+cd /etc/kubernetes/
+sudo vim config 
+    ----------------
+    KUBE_ETCD_SERVERS="--etcd-servers=http://127.0.0.1:2379"
+    ----------------
+
+sudo vim apiserver 
+    ----------------
+    KUBE_API_ADDRESS="--address=0.0.0.0"
+    KUBE_API_PORT="--port=8080"
+    KUBELET_PORT="--kubelet-port=10250"
+
+    Comment below line
+    KUBE_ADMISSION_CONTROL
+    ----------------
+
+sudo vim /etc/etcd/etcd.conf 
+     ----------------------
+     #[member]
+     ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379"
+
+     #[Clusterning]
+     ETCD_ADVERTISE_CLIENT_URLS="http://0.0.0.0:2379"
+    ----------------------
+
+
+sudo systemctl firewalld status
+sudo systemctl iptables status
+sudo systemctl enable etcd kube-apiserver kube-controller-manager kube-scheduler
+sudo systemctl start etcd kube-apiserver kube-controller-manager kube-scheduler
+kubectl get nodes
+
+
+-------> Minion Side
+cd /etc/kubernetes/
+vim config 
+    ------------------
+    KUBE_MASTER="--master=http://masterIP:8080"
+    KUBE_ETCD_SERVERS="--etcd-servers=http://masterIP:2379"
+    ------------------
+
+vim kubelet 
+    -------------------
+    KUBELET_ADDRESS="--address=0.0.0.0"
+    KUBELET_PORT="--port=10250"
+    KUBELET_HOSTNAME="node1"
+    KUBELET_API_SERVER="--api-servers=http://masterIP:8080"
+
+    Comment out below line
+    #KUBELET_POD_INFRA_CONTAINER
+    --------------------
+
+systemctl enable kube-proxy kubelet docker
+systemctl start kube-proxy kubelet docker
+
+
+vim tomcat-deployment.yml
+
+deployment.yml
+---------------
+apiVersion: extensions/v1beta2
+kind: Deployment
+metadata:
+    name: tomcat-deployment
+spec:
+    selector:
+        matchLabels:
+        app: tomcat
+    replicas: 1
+    template:
+        metadata:
+            labels:
+                app: tomcat
+        spec:
+            containers:
+                - name: tomcat
+                  image: tomcat:9.0
+                  ports:
+                  - containerPort: 8080
+
+kubectl apply -f ./deployment.yaml
+
+sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo yum install cockpit cockpit-kubernetes -y
+sudo systemctl enable cockpit
+sudo systemctl start cockpit 
+
+
+kubectl scale deployment/my-nginx --replicas=1 
+
+kubectl get pods --show-labels
+kubectl get deployments
+kubectl rollout status deployment <deployment_name>
+
+kubectl set image deployment/<deployment_name> tomcat=tomcat:9.0.1
+
+kubectl rollout history deployment/<deployment_name>
+
+kubectl rollout history deployment/<deployment_name> --revision=4
+
+kubectl rollout undo deployment/<deployment_name> --to-revision=4
+
+kubectl expose deployment tomcat-deployment --type=LoadBalancer --port=80 --target-port=8080 --name=tomcat-public
+
