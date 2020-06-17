@@ -3,7 +3,6 @@ kind: Pod
 metadata:
   name: californiaapp
 
-
 spec:
   containers:
   - name: californiaapp
